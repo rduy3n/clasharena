@@ -1,0 +1,6 @@
+{
+  "name": "Clash Arena",
+  "description": "Jeu de combat arcade 2D avec combattants équilibrés, coups classiques, capacités de base, ultimes, mode bot et multijoueur en ligne.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

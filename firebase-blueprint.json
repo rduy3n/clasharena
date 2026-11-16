@@ -1,0 +1,207 @@
+{
+  "entities": {
+    "PlayerProfile": {
+      "title": "PlayerProfile",
+      "description": "Authenticated player profile and arcade combat record.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated Firebase user UID."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Arcade display name shown in lobbies and matches."
+        },
+        "favoriteFighterId": {
+          "type": "string",
+          "description": "Identifier of the player's preferred fighter."
+        },
+        "wins": {
+          "type": "integer",
+          "description": "Total matches won."
+        },
+        "losses": {
+          "type": "integer",
+          "description": "Total matches lost."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update server timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "displayName", "favoriteFighterId", "wins", "losses", "createdAt", "updatedAt"]
+    },
+    "MatchRoom": {
+      "title": "MatchRoom",
+      "description": "Real-time online multiplayer 1v1 fighting game room.",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "description": "6-character alphanumeric room code matching document ID."
+        },
+        "hostId": {
+          "type": "string",
+          "description": "Firebase UID of Player 1 (host)."
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Arcade display name of Player 1."
+        },
+        "guestId": {
+          "type": "string",
+          "description": "Firebase UID of Player 2 (guest), empty while waiting."
+        },
+        "guestName": {
+          "type": "string",
+          "description": "Arcade display name of Player 2, empty while waiting."
+        },
+        "participantIds": {
+          "type": "array",
+          "description": "List of participant UIDs (1 while waiting, 2 once joined)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "selecting", "fighting", "finished"],
+          "description": "Lifecycle status of the online room."
+        },
+        "stageId": {
+          "type": "string",
+          "description": "Selected arena stage identifier."
+        },
+        "hostFighterId": {
+          "type": "string",
+          "description": "Fighter selected by Player 1."
+        },
+        "guestFighterId": {
+          "type": "string",
+          "description": "Fighter selected by Player 2."
+        },
+        "hostReady": {
+          "type": "boolean",
+          "description": "Whether Player 1 locked in their fighter."
+        },
+        "guestReady": {
+          "type": "boolean",
+          "description": "Whether Player 2 locked in their fighter."
+        },
+        "roundNumber": {
+          "type": "integer",
+          "description": "Current round number (1..3)."
+        },
+        "p1RoundsWon": {
+          "type": "integer",
+          "description": "Rounds won by Player 1."
+        },
+        "p2RoundsWon": {
+          "type": "integer",
+          "description": "Rounds won by Player 2."
+        },
+        "winnerSide": {
+          "type": "string",
+          "enum": ["none", "p1", "p2"],
+          "description": "Final match winner side."
+        },
+        "p1X": {
+          "type": "number",
+          "description": "Normalized arena X coordinate of Player 1 (0.0..1.0)."
+        },
+        "p1Y": {
+          "type": "number",
+          "description": "Normalized height above ground of Player 1 (0.0..1.0)."
+        },
+        "p1Facing": {
+          "type": "integer",
+          "description": "Facing direction of Player 1 (1 right, -1 left)."
+        },
+        "p1Action": {
+          "type": "string",
+          "description": "Current action identifier for Player 1."
+        },
+        "p1ActionSeq": {
+          "type": "integer",
+          "description": "Monotonic action counter for Player 1."
+        },
+        "p1Blocking": {
+          "type": "boolean",
+          "description": "Whether Player 1 is guarding."
+        },
+        "p1Ulti": {
+          "type": "integer",
+          "description": "Player 1 ultimate meter (0..100)."
+        },
+        "p1DealtDmg": {
+          "type": "integer",
+          "description": "Cumulative damage dealt by Player 1 in the current round."
+        },
+        "p2X": {
+          "type": "number",
+          "description": "Normalized arena X coordinate of Player 2 (0.0..1.0)."
+        },
+        "p2Y": {
+          "type": "number",
+          "description": "Normalized height above ground of Player 2 (0.0..1.0)."
+        },
+        "p2Facing": {
+          "type": "integer",
+          "description": "Facing direction of Player 2 (1 right, -1 left)."
+        },
+        "p2Action": {
+          "type": "string",
+          "description": "Current action identifier for Player 2."
+        },
+        "p2ActionSeq": {
+          "type": "integer",
+          "description": "Monotonic action counter for Player 2."
+        },
+        "p2Blocking": {
+          "type": "boolean",
+          "description": "Whether Player 2 is guarding."
+        },
+        "p2Ulti": {
+          "type": "integer",
+          "description": "Player 2 ultimate meter (0..100)."
+        },
+        "p2DealtDmg": {
+          "type": "integer",
+          "description": "Cumulative damage dealt by Player 2 in the current round."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update server timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "roomCode", "hostId", "hostName", "guestId", "guestName", "participantIds",
+        "status", "stageId", "hostFighterId", "guestFighterId", "hostReady", "guestReady",
+        "roundNumber", "p1RoundsWon", "p2RoundsWon", "winnerSide",
+        "p1X", "p1Y", "p1Facing", "p1Action", "p1ActionSeq", "p1Blocking", "p1Ulti", "p1DealtDmg",
+        "p2X", "p2Y", "p2Facing", "p2Action", "p2ActionSeq", "p2Blocking", "p2Ulti", "p2DealtDmg",
+        "createdAt", "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/PlayerProfile" },
+      "description": "Player profile and match statistics isolated per user."
+    },
+    "/match_rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/MatchRoom" },
+      "description": "Online 1v1 fighting game rooms keyed by 6-character room code."
+    }
+  }
+}

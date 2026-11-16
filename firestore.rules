@@ -1,0 +1,200 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidRoomCode(code) {
+      return code is string && code.size() == 6 && code.matches('^[A-Z0-9]{6}$');
+    }
+
+    function isValidProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40 &&
+             data.favoriteFighterId is string && data.favoriteFighterId.size() >= 1 && data.favoriteFighterId.size() <= 40 &&
+             data.wins is int && data.wins >= 0 && data.wins <= 1000000 &&
+             data.losses is int && data.losses >= 0 && data.losses <= 1000000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidMatchRoom(data) {
+      return isValidRoomCode(data.roomCode) &&
+             data.hostId is string && data.hostId.size() >= 1 && data.hostId.size() <= 128 &&
+             data.hostName is string && data.hostName.size() >= 1 && data.hostName.size() <= 40 &&
+             data.guestId is string && data.guestId.size() <= 128 &&
+             data.guestName is string && data.guestName.size() <= 40 &&
+             data.participantIds is list && data.participantIds.size() >= 1 && data.participantIds.size() <= 2 &&
+             data.participantIds[0] is string &&
+             data.status in ['waiting', 'selecting', 'fighting', 'finished'] &&
+             data.stageId is string && data.stageId.size() >= 1 && data.stageId.size() <= 40 &&
+             data.hostFighterId is string && data.hostFighterId.size() >= 1 && data.hostFighterId.size() <= 40 &&
+             data.guestFighterId is string && data.guestFighterId.size() >= 1 && data.guestFighterId.size() <= 40 &&
+             data.hostReady is bool &&
+             data.guestReady is bool &&
+             data.roundNumber is int && data.roundNumber >= 1 && data.roundNumber <= 5 &&
+             data.p1RoundsWon is int && data.p1RoundsWon >= 0 && data.p1RoundsWon <= 3 &&
+             data.p2RoundsWon is int && data.p2RoundsWon >= 0 && data.p2RoundsWon <= 3 &&
+             data.winnerSide in ['none', 'p1', 'p2'] &&
+             data.p1X is number && data.p1X >= 0.0 && data.p1X <= 1.0 &&
+             data.p1Y is number && data.p1Y >= 0.0 && data.p1Y <= 1.0 &&
+             data.p1Facing in [-1, 1] &&
+             data.p1Action is string && data.p1Action.size() >= 1 && data.p1Action.size() <= 30 &&
+             data.p1ActionSeq is int && data.p1ActionSeq >= 0 &&
+             data.p1Blocking is bool &&
+             data.p1Ulti is int && data.p1Ulti >= 0 && data.p1Ulti <= 100 &&
+             data.p1DealtDmg is int && data.p1DealtDmg >= 0 && data.p1DealtDmg <= 5000 &&
+             data.p2X is number && data.p2X >= 0.0 && data.p2X <= 1.0 &&
+             data.p2Y is number && data.p2Y >= 0.0 && data.p2Y <= 1.0 &&
+             data.p2Facing in [-1, 1] &&
+             data.p2Action is string && data.p2Action.size() >= 1 && data.p2Action.size() <= 30 &&
+             data.p2ActionSeq is int && data.p2ActionSeq >= 0 &&
+             data.p2Blocking is bool &&
+             data.p2Ulti is int && data.p2Ulti >= 0 && data.p2Ulti <= 100 &&
+             data.p2DealtDmg is int && data.p2DealtDmg >= 0 && data.p2DealtDmg <= 5000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow get, list: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'favoriteFighterId', 'wins', 'losses', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'favoriteFighterId', 'wins', 'losses', 'createdAt', 'updatedAt']) &&
+                       isValidProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'favoriteFighterId', 'wins', 'losses', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    match /match_rooms/{roomId} {
+      allow get: if isSignedIn() && isValidRoomCode(roomId) && (
+        existing().status == 'waiting' ||
+        request.auth.uid in existing().participantIds
+      );
+
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participantIds;
+
+      allow create: if isSignedIn() &&
+                       isValidRoomCode(roomId) &&
+                       incoming().roomCode == roomId &&
+                       incoming().hostId == request.auth.uid &&
+                       incoming().guestId == '' &&
+                       incoming().participantIds.size() == 1 &&
+                       incoming().participantIds[0] == request.auth.uid &&
+                       incoming().status == 'waiting' &&
+                       incoming().winnerSide == 'none' &&
+                       incoming().keys().hasAll([
+                         'roomCode', 'hostId', 'hostName', 'guestId', 'guestName', 'participantIds',
+                         'status', 'stageId', 'hostFighterId', 'guestFighterId', 'hostReady', 'guestReady',
+                         'roundNumber', 'p1RoundsWon', 'p2RoundsWon', 'winnerSide',
+                         'p1X', 'p1Y', 'p1Facing', 'p1Action', 'p1ActionSeq', 'p1Blocking', 'p1Ulti', 'p1DealtDmg',
+                         'p2X', 'p2Y', 'p2Facing', 'p2Action', 'p2ActionSeq', 'p2Blocking', 'p2Ulti', 'p2DealtDmg',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'roomCode', 'hostId', 'hostName', 'guestId', 'guestName', 'participantIds',
+                         'status', 'stageId', 'hostFighterId', 'guestFighterId', 'hostReady', 'guestReady',
+                         'roundNumber', 'p1RoundsWon', 'p2RoundsWon', 'winnerSide',
+                         'p1X', 'p1Y', 'p1Facing', 'p1Action', 'p1ActionSeq', 'p1Blocking', 'p1Ulti', 'p1DealtDmg',
+                         'p2X', 'p2Y', 'p2Facing', 'p2Action', 'p2ActionSeq', 'p2Blocking', 'p2Ulti', 'p2DealtDmg',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidMatchRoom(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidRoomCode(roomId) &&
+                       isValidMatchRoom(incoming()) &&
+                       existing().status != 'finished' &&
+                       incoming().roomCode == existing().roomCode &&
+                       incoming().hostId == existing().hostId &&
+                       incoming().createdAt == existing().createdAt && (
+                         // Action 1: Guest joins a waiting room
+                         (
+                           existing().status == 'waiting' &&
+                           existing().guestId == '' &&
+                           request.auth.uid != existing().hostId &&
+                           incoming().guestId == request.auth.uid &&
+                           incoming().participantIds.size() == 2 &&
+                           incoming().participantIds[0] == existing().hostId &&
+                           incoming().participantIds[1] == request.auth.uid &&
+                           incoming().status == 'selecting' &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['guestId', 'guestName', 'participantIds', 'status', 'updatedAt'])
+                         ) ||
+                         // Action 2: Host selects fighter / stage / starts match in lobby
+                         (
+                           request.auth.uid == existing().hostId &&
+                           existing().status in ['waiting', 'selecting'] &&
+                           incoming().status in ['waiting', 'selecting', 'fighting'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'hostFighterId', 'hostReady', 'stageId', 'status',
+                             'roundNumber', 'p1RoundsWon', 'p2RoundsWon', 'winnerSide',
+                             'p1X', 'p1Y', 'p1Facing', 'p1Action', 'p1ActionSeq', 'p1Blocking', 'p1Ulti', 'p1DealtDmg',
+                             'p2X', 'p2Y', 'p2Facing', 'p2Action', 'p2ActionSeq', 'p2Blocking', 'p2Ulti', 'p2DealtDmg',
+                             'updatedAt'
+                           ])
+                         ) ||
+                         // Action 3: Guest selects fighter / readies up in lobby
+                         (
+                           request.auth.uid == existing().guestId &&
+                           existing().status == 'selecting' &&
+                           incoming().status in ['selecting', 'fighting'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['guestFighterId', 'guestReady', 'status', 'updatedAt'])
+                         ) ||
+                         // Action 4: Host (Player 1) updates P1 combat state or resolves round/match outcome
+                         (
+                           request.auth.uid == existing().hostId &&
+                           existing().status == 'fighting' &&
+                           incoming().status in ['fighting', 'finished'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'p1X', 'p1Y', 'p1Facing', 'p1Action', 'p1ActionSeq', 'p1Blocking', 'p1Ulti', 'p1DealtDmg',
+                             'p2DealtDmg', 'roundNumber', 'p1RoundsWon', 'p2RoundsWon', 'status', 'winnerSide', 'updatedAt'
+                           ])
+                         ) ||
+                         // Action 5: Guest (Player 2) updates P2 combat state or reports match finish
+                         (
+                           request.auth.uid == existing().guestId &&
+                           existing().status == 'fighting' &&
+                           incoming().status in ['fighting', 'finished'] &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'p2X', 'p2Y', 'p2Facing', 'p2Action', 'p2ActionSeq', 'p2Blocking', 'p2Ulti', 'p2DealtDmg',
+                             'status', 'winnerSide', 'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidRoomCode(roomId) && request.auth.uid == existing().hostId;
+    }
+  }
+}
